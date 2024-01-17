@@ -1,0 +1,60 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+
+pool: Orhan-agent-pool 
+
+name: 1.0.$(Rev:r)
+
+jobs:
+  - job: BuildandTest
+    displayName: Build and Test
+    steps:
+    - task: DotNetCoreCLI@2
+      displayName: dotnet restore
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+        feedsToUse: 'select'
+        vstsFeed: 'b0754d1e-bd50-48c4-a054-dc7cc0871a31/507d4c6c-08e4-4a67-ac13-62612ca2034b'
+
+    - task: DotNetCoreCLI@2
+      displayName: dotnet build
+      inputs:
+        command: 'build'
+        projects: '**/*.csproj'
+    - task: DotNetCoreCLI@2
+      displayName: dotnet test
+      inputs:
+        command: 'test'
+        projects: '**/*Tests.csproj'
+  - job: CreateNugetPackage
+    dependsOn: BuildandTest
+    condition: succeeded()
+    steps: 
+    - task: DotNetCoreCLI@2
+      displayName: dotnet pack
+      inputs:
+        command: 'pack'
+        packagesToPack: '**/FibonacciNumberGeneratorLibrary.csproj'
+        versioningScheme: 'byBuildNumber'
+
+
+    - task: DotNetCoreCLI@2
+      displayName: dotnet push
+      inputs:
+        command: 'push'
+        packagesToPush: '$(Build.ArtifactStagingDirectory)/*.nupkg'
+        nuGetFeedType: 'internal'
+        publishVstsFeed: 'b0754d1e-bd50-48c4-a054-dc7cc0871a31/507d4c6c-08e4-4a67-ac13-62612ca2034b'
+
+    - task: PublishBuildArtifacts@1
+      displayName: publish build artifact
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
